@@ -3,14 +3,10 @@ return {
 
 
     -- to put default values in inputs
-    Debug = true,
+    Debug = false,
 
-    /*  
-        ox inv - nui://ox_inventory/web/images/%s.png
-        qb inv - nui://qb-inventory/html/images/%s.png
-    */
 
-    ImagePath = 'nui://qb-inventory/html/images/%s.png',
+    EnableImageIcons = true,
     
     Machines = {
         { label = 'prop_vend_coffe_01', value = 'prop_vend_coffe_01' },

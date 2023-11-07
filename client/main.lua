@@ -71,8 +71,8 @@ function GenerateMenu(point)
                 for k,v in pairs(shop) do
                     option[#option + 1] = {
                         title = v.label,
-                        icon = ImagePath:format(k),
-                        description = ('Price: %s | Stock: %s'):format(v.price, v.count),
+                        icon = cfg.EnableImageIcons and ImagePath:format(k) or '',
+                        description = ('Price: $%s | Stock: %s'):format(v.price, v.count),
                         onSelect = function()
                             local count = lib.inputDialog('', { { type = 'number', label = 'How much you would like to buy?', max = v.count, min = 1, required = true } })
                             if not count then return end
@@ -187,11 +187,46 @@ function GenerateMenu(point)
                     for k,v in pairs(shop) do
                         option[#option + 1] = {
                             title = v.label,
-                            icon = ImagePath:format(k),
-                            description = ('Price: %s | Stock: %s'):format(v.price, v.count),
+                            icon = cfg.EnableImageIcons and ImagePath:format(k) or '',
+                            description = ('Price: $%s | Stock: %s'):format(v.price, v.count),
                             arrow = true,
                             onSelect = function()
-                                print(json.encode('item edit', {indent = true}))
+                                lib.registerContext({
+                                    id = 'uniq_vending:item_edit',
+                                    title = 'Edit Item',
+                                    options = {
+                                        {
+                                            title = 'Remove Item',
+                                            arrow = true,
+                                            onSelect = function(args)
+                                                local input = lib.inputDialog('', { { type = 'number', label = 'Amount', description = ('Max: %s'):format(v.count), min = 1, max = v.count, required = true } })
+                                                if not input then return end
+
+                                                TriggerServerEvent('uniq_vending:removeShopItem', {
+                                                    shop = point.label,
+                                                    itemName = k,
+                                                    count = input[1],
+                                                })
+                                            end
+                                        },
+                                        {
+                                            title = 'Update Price',
+                                            arrow = true,
+                                            onSelect = function(args)
+                                                local input = lib.inputDialog('', { { type = 'number', label = 'New Price', description = ('Current: %s'):format(v.price), min = 1, required = true } })
+                                                if not input then return end
+
+                                                TriggerServerEvent('uniq_vending:updatePrice', {
+                                                    shop = point.label,
+                                                    itemName = k,
+                                                    price = input[1],
+                                                })
+                                            end
+                                        }
+                                    }
+                                })
+
+                                lib.showContext('uniq_vending:item_edit')
                             end
                         }
                     end
@@ -311,11 +346,46 @@ function GenerateMenu(point)
                     for k,v in pairs(shop) do
                         option[#option + 1] = {
                             title = v.label,
-                            icon = ImagePath:format(k),
-                            description = ('Price: %s | Stock: %s'):format(v.price, v.count),
+                            icon = cfg.EnableImageIcons and ImagePath:format(k) or '',
+                            description = ('Price: $%s | Stock: %s'):format(v.price, v.count),
                             arrow = true,
                             onSelect = function()
-                                print(json.encode('item edit', {indent = true}))
+                                lib.registerContext({
+                                    id = 'uniq_vending:item_edit',
+                                    title = 'Edit Item',
+                                    options = {
+                                        {
+                                            title = 'Remove Item',
+                                            arrow = true,
+                                            onSelect = function(args)
+                                                local input = lib.inputDialog('', { { type = 'number', label = 'Amount', description = ('Max: %s'):format(v.count), min = 1, max = v.count, required = true } })
+                                                if not input then return end
+
+                                                TriggerServerEvent('uniq_vending:removeShopItem', {
+                                                    shop = point.label,
+                                                    itemName = k,
+                                                    count = input[1],
+                                                })
+                                            end
+                                        },
+                                        {
+                                            title = 'Update Price',
+                                            arrow = true,
+                                            onSelect = function(args)
+                                                local input = lib.inputDialog('', { { type = 'number', label = 'New Price', description = ('Current: %s'):format(v.price), min = 1, required = true } })
+                                                if not input then return end
+
+                                                TriggerServerEvent('uniq_vending:updatePrice', {
+                                                    shop = point.label,
+                                                    itemName = k,
+                                                    price = input[1],
+                                                })
+                                            end
+                                        }
+                                    }
+                                })
+
+                                lib.showContext('uniq_vending:item_edit')
                             end
                         }
                     end

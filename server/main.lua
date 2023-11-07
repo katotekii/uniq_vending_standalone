@@ -167,6 +167,8 @@ RegisterNetEvent('uniq_vending:sellVending', function(name)
         local price = math.floor(Vending[name].price * cfg.SellPertencage)
 
         exports.ox_inventory:AddItem(src, 'money', price)
+
+        AddItem(src, 'money', price)
         Vending[name].owner = false
 
         MySQL.update('UPDATE `uniq_vending` SET `data` = ? WHERE `name` = ?', {json.encode(Vending[name], {sort_keys = true}), name})
@@ -351,6 +353,54 @@ lib.callback.register('uniq_vending:getGrades', function(source, job)
     end
 
     return options
+end)
+
+
+RegisterNetEvent('uniq_vending:removeShopItem', function(data)
+    local src = source
+
+    if Vending[data.shop] then
+        if type(Vending[data.shop].owner) == 'string' then
+            if Vending[data.shop].owner == GetIdentifier(src) then
+                Vending[data.shop].shop[data.itemName].count -= data.count
+
+                if Vending[data.shop].shop[data.itemName].count == 0 then
+                    Vending[data.shop].shop[data.itemName] = nil
+                end
+
+                AddItem(src, data.itemName, data.count)
+            end
+        elseif type(Vending[data.shop].owner) == 'table' then
+            local job, grade = GetJob(src)
+
+            if Vending[data.shop].owner[job] and grade >= Vending[data.shop].owner[job] then
+                if Vending[data.shop].shop[data.itemName].count == 0 then
+                    Vending[data.shop].shop[data.itemName] = nil
+                end
+
+                AddItem(src, data.itemName, data.count)
+            end
+        end
+    end
+end)
+
+
+RegisterNetEvent('uniq_vending:updatePrice', function(data)
+    local src = source
+
+    if Vending[data.shop] then
+        if type(Vending[data.shop].owner) == 'string' then
+            if Vending[data.shop].owner == GetIdentifier(src) then
+                Vending[data.shop].shop[data.itemName].price = data.price
+            end
+        elseif type(Vending[data.shop].owner) == 'table' then
+            local job, grade = GetJob(src)
+
+            if Vending[data.shop].owner[job] and grade >= Vending[data.shop].owner[job] then
+                Vending[data.shop].shop[data.itemName].price = data.price
+            end
+        end
+    end
 end)
 
 local function saveDB()
