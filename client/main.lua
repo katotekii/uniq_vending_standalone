@@ -53,6 +53,22 @@ local menu = {
     options = {}
 }
 
+local function isOwner(owner)
+    if type(owner) == 'string' then
+        if owner == GetIdentifier() then
+            return true
+        end
+    elseif type(owner) == "table" then
+        local job, grade = GetJob()
+
+        if owner[job] and grade >= owner[job] then
+            return true
+        end
+    end
+
+    return false
+end
+
 function GenerateMenu(point)
     local options = {
         {
@@ -72,9 +88,9 @@ function GenerateMenu(point)
                     option[#option + 1] = {
                         title = v.label,
                         icon = cfg.EnableImageIcons and ImagePath:format(k) or '',
-                        description = ('Price: $%s | Stock: %s'):format(v.price, v.count),
+                        description = L('context.item_desc'):format(v.price, v.count),
                         onSelect = function()
-                            local count = lib.inputDialog('', { { type = 'number', label = 'How much you would like to buy?', max = v.count, min = 1, required = true } })
+                            local count = lib.inputDialog('', { { type = 'number', label = L('context.how_much'), max = v.count, min = 1, required = true } })
                             if not count then return end
 
                             TriggerServerEvent('uniq_vending:buyItem', {
@@ -88,7 +104,7 @@ function GenerateMenu(point)
 
                 lib.registerContext({
                     id = 'uniq_vending:buyItem',
-                    title = 'Stock',
+                    title = L('context.item_stock'),
                     options = option
                 })
 
@@ -117,323 +133,161 @@ function GenerateMenu(point)
         }
     end
 
-    -- owned by player
-    if type(point.owner) == 'string' then
+    if isOwner(point.owner) then
         local balancee = lib.callback.await('uniq_vending:getMoneyShop', false, point.label)
 
-        if point.owner == GetIdentifier() then
-            options[#options+1] = {
-                title = L('context.sell_vending'),
-                icon = 'fa-solid fa-money-bill-trend-up',
-                onSelect = function()
-                    local alert = lib.alertDialog({
-                        header = L('context.sell_vending'),
-                        content = L('alert.sell_vending_confirm'):format(math.floor(point.price * cfg.SellPertencage)),
-                        centered = true,
-                        cancel = true
-                    })
-    
-                    if alert == 'confirm' then
-                        TriggerServerEvent('uniq_vending:sellVending', point.label)
-                    end
+        options[#options+1] = {
+            title = L('context.sell_vending'),
+            icon = 'fa-solid fa-money-bill-trend-up',
+            onSelect = function()
+                local alert = lib.alertDialog({
+                    header = L('context.sell_vending'),
+                    content = L('alert.sell_vending_confirm'):format(math.floor(point.price * cfg.SellPertencage)),
+                    centered = true,
+                    cancel = true
+                })
+
+                if alert == 'confirm' then
+                    TriggerServerEvent('uniq_vending:sellVending', point.label)
                 end
-            }
+            end
+        }
 
-            options[#options + 1] = {
-                title = L('context.stock'),
-                icon = 'fa-solid fa-box',
-                onSelect = function()
-                    local shop = lib.callback.await('uniq_vending:GetItems', false, point.label)
+        options[#options + 1] = {
+            title = L('context.stock'),
+            icon = 'fa-solid fa-box',
+            onSelect = function()
+                local shop = lib.callback.await('uniq_vending:GetItems', false, point.label)
 
-                    local option = {
-                        {
-                            title = 'Add New Item',
-                            onSelect = function()
-                                local inv = lib.callback.await('uniq_vending:GetPlayerInv', false)
-                                local items = {}
+                local option = {
+                    {
+                        title = L('context.new_item'),
+                        onSelect = function()
+                            local inv = lib.callback.await('uniq_vending:GetPlayerInv', false)
+                            local items = {}
 
-                                for k,v in pairs(inv) do
-                                    if not cfg.BlacklistedItems[v.value] then
-                                        items[#items + 1] = { label = v.label, value = v.value }
-                                    end
+                            for k,v in pairs(inv) do
+                                if not cfg.BlacklistedItems[v.value] then
+                                    items[#items + 1] = { label = v.label, value = v.value }
                                 end
+                            end
 
-                                table.sort(items, function (a, b)
-                                    return a.label < b.label
-                                end)
+                            table.sort(items, function (a, b)
+                                return a.label < b.label
+                            end)
 
-                                local input = lib.inputDialog('', { { type = 'select', label = 'Select Item', options = items, required = true } })
+                            local input = lib.inputDialog('', { { type = 'select', label = L('context.select_item'), options = items, required = true } })
+                            if not input then return end
+
+                            local getMax = lib.callback.await('uniq_vending:getMax', false, input[1])
+
+                            local input2 = lib.inputDialog('', {
+                                { type = 'number', label = L('context.amount'), description = L('context.max_can_put'):format(getMax), required = true, max = getMax },
+                                { type = 'number', label = 'Price', required = true },
+                            })
+
+                            if not input2 then return end
+
+                            TriggerServerEvent('uniq_vending:addStockItems', {
+                                shop = point.label,
+                                itemName = input[1],
+                                count = input2[1],
+                                price = input2[2]
+                            })
+                        end
+                    }
+                }
+
+                for k,v in pairs(shop) do
+                    option[#option + 1] = {
+                        title = v.label,
+                        icon = cfg.EnableImageIcons and ImagePath:format(k) or '',
+                        description = L('context.item_desc'):format(v.price, v.count),
+                        arrow = true,
+                        onSelect = function()
+                            lib.registerContext({
+                                id = 'uniq_vending:item_edit',
+                                title = L('context.edit_item'),
+                                options = {
+                                    {
+                                        title = L('context.rem_item'),
+                                        arrow = true,
+                                        onSelect = function(args)
+                                            local input = lib.inputDialog('', { { type = 'number', label = L('context.amount'), description = L('context.max'):format(v.count), min = 1, max = v.count, required = true } })
+                                            if not input then return end
+
+                                            TriggerServerEvent('uniq_vending:removeShopItem', {
+                                                shop = point.label,
+                                                itemName = k,
+                                                count = input[1],
+                                            })
+                                        end
+                                    },
+                                    {
+                                        title = L('context.update_price'),
+                                        arrow = true,
+                                        onSelect = function(args)
+                                            local input = lib.inputDialog('', { { type = 'number', label = L('context.item_price'), description = L('context.current'):format(v.price), min = 1, required = true } })
+                                            if not input then return end
+
+                                            TriggerServerEvent('uniq_vending:updatePrice', {
+                                                shop = point.label,
+                                                itemName = k,
+                                                price = input[1],
+                                            })
+                                        end
+                                    }
+                                }
+                            })
+
+                            lib.showContext('uniq_vending:item_edit')
+                        end
+                    }
+                end
+
+                lib.registerContext({
+                    id = 'uniq_vending:stock',
+                    title = L('context.stock'),
+                    options = option
+                })
+
+                lib.showContext('uniq_vending:stock')
+            end
+        }
+
+        options[#options + 1] = {
+            title = L('context.money'):format(balancee),
+            icon = 'fa-solid fa-sack-dollar',
+            arrow = true,
+            onSelect = function()
+                lib.registerContext({
+                    id = 'uniq_vending:shop:balance',
+                    title = L('context.handle_balance'),
+                    options = {
+                        {
+                            title = L('context.w_money'),
+                            onSelect = function()
+                                local input = lib.inputDialog('', { { type = 'number', label = L('context.amount'), description = L('context.max'):format(balancee), max = balancee, min = 1, required = true } })
                                 if not input then return end
 
-                                local getMax = lib.callback.await('uniq_vending:getMax', false, input[1])
+                                TriggerServerEvent('uniq_vending:withdaw', point.label, input[1])
+                            end
+                        },
+                        {
+                            title = L('context.d_money'),
+                            onSelect = function()
+                                local input = lib.inputDialog('', { { type = 'number', label = L('context.amount'), min = 1, required = true } })
+                                if not input then return end
 
-                                local input2 = lib.inputDialog('', {
-                                    { type = 'number', label = 'Amount', description = ('Max you can put is %s'):format(getMax), required = true, max = getMax },
-                                    { type = 'number', label = 'Price', required = true },
-                                })
-
-                                if not input2 then return end
-
-                                TriggerServerEvent('uniq_vending:addStockItems', {
-                                    shop = point.label,
-                                    itemName = input[1],
-                                    count = input2[1],
-                                    price = input2[2]
-                                })
+                                TriggerServerEvent('uniq_vending:deposit', point.label, input[1])
                             end
                         }
                     }
+                })
 
-                    for k,v in pairs(shop) do
-                        option[#option + 1] = {
-                            title = v.label,
-                            icon = cfg.EnableImageIcons and ImagePath:format(k) or '',
-                            description = ('Price: $%s | Stock: %s'):format(v.price, v.count),
-                            arrow = true,
-                            onSelect = function()
-                                lib.registerContext({
-                                    id = 'uniq_vending:item_edit',
-                                    title = 'Edit Item',
-                                    options = {
-                                        {
-                                            title = 'Remove Item',
-                                            arrow = true,
-                                            onSelect = function(args)
-                                                local input = lib.inputDialog('', { { type = 'number', label = 'Amount', description = ('Max: %s'):format(v.count), min = 1, max = v.count, required = true } })
-                                                if not input then return end
-
-                                                TriggerServerEvent('uniq_vending:removeShopItem', {
-                                                    shop = point.label,
-                                                    itemName = k,
-                                                    count = input[1],
-                                                })
-                                            end
-                                        },
-                                        {
-                                            title = 'Update Price',
-                                            arrow = true,
-                                            onSelect = function(args)
-                                                local input = lib.inputDialog('', { { type = 'number', label = 'New Price', description = ('Current: %s'):format(v.price), min = 1, required = true } })
-                                                if not input then return end
-
-                                                TriggerServerEvent('uniq_vending:updatePrice', {
-                                                    shop = point.label,
-                                                    itemName = k,
-                                                    price = input[1],
-                                                })
-                                            end
-                                        }
-                                    }
-                                })
-
-                                lib.showContext('uniq_vending:item_edit')
-                            end
-                        }
-                    end
-
-                    lib.registerContext({
-                        id = 'uniq_vending:stock',
-                        title = 'Stock',
-                        options = option
-                    })
-
-                    lib.showContext('uniq_vending:stock')
-                end
-            }
-
-            options[#options + 1] = {
-                title = L('context.money'):format(balancee),
-                icon = 'fa-solid fa-sack-dollar',
-                arrow = true,
-                onSelect = function()
-                    lib.registerContext({
-                        id = 'uniq_vending:shop:balance',
-                        title = 'Handle Balance',
-                        options = {
-                            {
-                                title = 'Withdaw Money',
-                                onSelect = function()
-                                    local input = lib.inputDialog('', { { type = 'number', label = 'Amount', description = ('Max %s'):format(balancee), max = balancee, min = 1, required = true } })
-                                    if not input then return end
-
-                                    TriggerServerEvent('uniq_vending:withdaw', point.label, input[1])
-                                end
-                            },
-                            {
-                                title = 'Deposit Money',
-                                onSelect = function()
-                                    local input = lib.inputDialog('', { { type = 'number', label = 'Amount', min = 1, required = true } })
-                                    if not input then return end
-
-                                    TriggerServerEvent('uniq_vending:deposit', point.label, input[1])
-                                end
-                            }
-                        }
-                    })
-
-                    lib.showContext('uniq_vending:shop:balance')
-                end
-            }
-        end
-        -- owned by job
-    elseif type(point.owner) == 'table' then
-        local balancee = lib.callback.await('uniq_vending:getMoneyShop', false, point.label)
-        local job, grade = GetJob()
-
-        if point.owner[job] and grade >= point.owner[job] then
-            options[#options+1] = {
-                title = L('context.sell_vending'),
-                icon = 'fa-solid fa-money-bill-trend-up',
-                onSelect = function()
-                    local alert = lib.alertDialog({
-                        header = L('context.sell_vending'),
-                        content = L('alert.sell_vending_confirm'):format(math.floor(point.price * cfg.SellPertencage)),
-                        centered = true,
-                        cancel = true
-                    })
-    
-                    if alert == 'confirm' then
-                        TriggerServerEvent('uniq_vending:sellVending', point.label)
-                    end
-                end
-            }
-
-            options[#options + 1] = {
-                title = L('context.stock'),
-                icon = 'fa-solid fa-box',
-                onSelect = function()
-                    local shop = lib.callback.await('uniq_vending:GetItems', false, point.label)
-
-                    local option = {
-                        {
-                            title = 'Add New Item',
-                            onSelect = function()
-                                local inv = lib.callback.await('uniq_vending:GetPlayerInv', false)
-                                local items = {}
-
-                                for k,v in pairs(inv) do
-                                    if not cfg.BlacklistedItems[v.value] then
-                                        items[#items + 1] = { label = v.label, value = v.value }
-                                    end
-                                end
-
-                                table.sort(items, function (a, b)
-                                    return a.label < b.label
-                                end)
-
-                                local input = lib.inputDialog('', { { type = 'select', label = 'Select Item', options = items, required = true } })
-                                if not input then return end
-
-                                local getMax = lib.callback.await('uniq_vending:getMax', false, input[1])
-
-                                local input2 = lib.inputDialog('', {
-                                    { type = 'number', label = 'Amount', description = ('Max you can put is %s'):format(getMax), required = true, max = getMax },
-                                    { type = 'number', label = 'Price', required = true },
-                                })
-
-                                if not input2 then return end
-
-                                TriggerServerEvent('uniq_vending:addStockItems', {
-                                    shop = point.label,
-                                    itemName = input[1],
-                                    count = input2[1],
-                                    price = input2[2]
-                                })
-                            end
-                        }
-                    }
-
-                    for k,v in pairs(shop) do
-                        option[#option + 1] = {
-                            title = v.label,
-                            icon = cfg.EnableImageIcons and ImagePath:format(k) or '',
-                            description = ('Price: $%s | Stock: %s'):format(v.price, v.count),
-                            arrow = true,
-                            onSelect = function()
-                                lib.registerContext({
-                                    id = 'uniq_vending:item_edit',
-                                    title = 'Edit Item',
-                                    options = {
-                                        {
-                                            title = 'Remove Item',
-                                            arrow = true,
-                                            onSelect = function(args)
-                                                local input = lib.inputDialog('', { { type = 'number', label = 'Amount', description = ('Max: %s'):format(v.count), min = 1, max = v.count, required = true } })
-                                                if not input then return end
-
-                                                TriggerServerEvent('uniq_vending:removeShopItem', {
-                                                    shop = point.label,
-                                                    itemName = k,
-                                                    count = input[1],
-                                                })
-                                            end
-                                        },
-                                        {
-                                            title = 'Update Price',
-                                            arrow = true,
-                                            onSelect = function(args)
-                                                local input = lib.inputDialog('', { { type = 'number', label = 'New Price', description = ('Current: %s'):format(v.price), min = 1, required = true } })
-                                                if not input then return end
-
-                                                TriggerServerEvent('uniq_vending:updatePrice', {
-                                                    shop = point.label,
-                                                    itemName = k,
-                                                    price = input[1],
-                                                })
-                                            end
-                                        }
-                                    }
-                                })
-
-                                lib.showContext('uniq_vending:item_edit')
-                            end
-                        }
-                    end
-
-                    lib.registerContext({
-                        id = 'uniq_vending:stock',
-                        title = 'Stock',
-                        options = option
-                    })
-
-                    lib.showContext('uniq_vending:stock')
-                end
-            }
-
-            options[#options + 1] = {
-                title = L('context.money'):format(balancee),
-                icon = 'fa-solid fa-sack-dollar',
-                arrow = true,
-                onSelect = function()
-                    lib.registerContext({
-                        id = 'uniq_vending:shop:balance',
-                        title = 'Handle Balance',
-                        options = {
-                            {
-                                title = 'Withdaw Money',
-                                onSelect = function()
-                                    local input = lib.inputDialog('', { { type = 'number', label = 'Amount', description = ('Max %s'):format(balancee), max = balancee, min = 1, required = true } })
-                                    if not input then return end
-
-                                    TriggerServerEvent('uniq_vending:withdaw', point.label, input[1])
-                                end
-                            },
-                            {
-                                title = 'Deposit Money',
-                                onSelect = function()
-                                    local input = lib.inputDialog('', { { type = 'number', label = 'Amount', min = 1, required = true } })
-                                    if not input then return end
-
-                                    TriggerServerEvent('uniq_vending:deposit', point.label, input[1])
-                                end
-                            }
-                        }
-                    })
-
-                    lib.showContext('uniq_vending:shop:balance')
-                end
-            }
-        end
+                lib.showContext('uniq_vending:shop:balance')
+            end
+        }
     end
 
     menu.options = options
