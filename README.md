@@ -1,6 +1,6 @@
 <div align='center'><img src='https://i.imgur.com/ohvQthn.png'/></div>
 
-<br><div><h4 align='center'><a href='https://youtu.be/3cohoM3Sh-U'>Showcase</a></h4></div><br>
+<br><div><h4 align='center'><a href='https://streamable.com/8y91yn'>Showcase</a></h4></div><br>
 
 <p style="text-align: center;">Ultimate system empowering you to effortlessly create and manage a multitude of personalized vending machines whenever you desire.</p>
 
